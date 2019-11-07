@@ -597,7 +597,8 @@ class RandomizerData(object):
     # int: nEggs
 
 
-    def __init__(self, settings):
+    def __init__(self, settings, randominstance):
+        self.random = randominstance
         self.default_config_flags = define_config_flags()
         self.pessimistic_config_flags = dict((key, False) for key in self.default_config_flags.keys())
 

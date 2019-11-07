@@ -1,4 +1,3 @@
-import random
 from utility import *
 from difficultyanalysis import compute_average_goal_level
 
@@ -90,7 +89,7 @@ class Analyzer(object):
         if len(hard_to_reach_all) < nHardToReach:
             return 'Not enough reachable items (%d) for hard to reach (%d)...?' % (len(hard_to_reach_all), nHardToReach)
 
-        self.hard_to_reach_items = random.sample(hard_to_reach_all, nHardToReach)
+        self.hard_to_reach_items = self.data.random.sample(hard_to_reach_all, nHardToReach)
         self.reachable = reachable
         self.unreachable = unreachable
         self.levels = levels

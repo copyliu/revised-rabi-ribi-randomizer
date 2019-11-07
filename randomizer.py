@@ -1,4 +1,7 @@
 import argparse, random, sys
+import multiprocessing.dummy
+import multiprocessing
+
 from utility import *
 from generator import Generator
 from dataparser import RandomizerData
@@ -40,7 +43,7 @@ def parse_args():
     args.add_argument('--egg-goals', action='store_true', help='Egg goals mode. Hard-to-reach items are replaced with easter eggs. All other eggs are removed from the map.')
     args.add_argument('-extra-eggs', default=0, type=int, help='Number of extra randomly-chosen eggs for egg-goals mode (in addition to the hard-to-reach eggs)')
     args.add_argument('-num-hard-to-reach', default=5, type=int, help='Number of hard to reach items/eggs. Default is 5.')
-
+    args.add_argument('-thread', default=4, type=int, help='Number of thread used for generation, ignore if seed specificd. Default is 4, 0 for CPU count')
     return args.parse_args(sys.argv[1:])
 
 
@@ -236,7 +239,7 @@ def apply_diff_patch_fixes(mod, diff_patch_files):
         for areaid, diffs in diff_data.area_diffs.items():
             apply_diff(area_arrays[areaid], diffs)
 
-def pre_modify_map_data(mod, settings, diff_patch_files):
+def pre_modify_map_data(mod, settings, diff_patch_files, randominstance):
     # apply rando fixes
     if settings.apply_fixes:
         for areaid, data in mod.stored_datas.items():
@@ -252,10 +255,10 @@ def pre_modify_map_data(mod, settings, diff_patch_files):
     # must be shuffled before the room colors!
 
     if settings.shuffle_music:
-        musicrandomizer.shuffle_music(mod.stored_datas)
+        musicrandomizer.shuffle_music(mod.stored_datas, randominstance)
 
     if settings.shuffle_backgrounds:
-        backgroundrandomizer.shuffle_backgrounds(mod.stored_datas, settings.no_laggy_backgrounds, settings.no_difficult_backgrounds)
+        backgroundrandomizer.shuffle_backgrounds(mod.stored_datas, settings.no_laggy_backgrounds, settings.no_difficult_backgrounds, randominstance)
 
     # Add shaft if needed
     configure_shaft(mod, settings)
@@ -396,35 +399,66 @@ def generate_analysis_file(data, allocation, analyzer, difficulty_analysis, sett
         f.close()
 
 def run_randomizer(seed, settings):
-    if seed != None: random.seed(seed)
-    randomizer_data = RandomizerData(settings)
-    generator = Generator(randomizer_data, settings)
-    allocation, analyzer, difficulty_analysis = generator.generate_seed()
-    #print_ln('done')
+    if seed is not None: #single-thread for specific seed
+        run_generator(seed, settings, multiprocessing.Value("i",0), multiprocessing.Lock())
+    else:
+        # do multi-thread
+        manager = multiprocessing.Manager()
 
+        thread = settings.thread
+        if not thread :
+            thread = 4
+        pool = multiprocessing.Pool(thread)
+
+        flag = manager.Value("i",0)
+        lock = manager.Lock()
+
+
+        [pool.apply_async(run_generator,[random.randint(0,2147483647), settings, flag, lock]) for _ in range(thread)]
+        pool.close()
+        pool.join()
+        if not flag.value:
+            fail("Unable to generate a valid seed")
+
+def run_generator(seed, settings, flag, lock):
+    """
+    we use an array to stop generator if some thread finish its work.
+    """
+    randominstance = random.Random(seed)
+    randomizer_data = RandomizerData(settings, randominstance)
+    generator = Generator(randomizer_data, settings, flag, lock)
+    allocation, analyzer, difficulty_analysis = generator.generate_seed()
+
+
+    #print_ln('done')
+    if not allocation:
+        return
+        #fail('Unable to generate a valid seed after %d attempts.' % settings.max_attempts)
     generate_analysis_file(randomizer_data, allocation, analyzer, difficulty_analysis, settings)
 
     if settings.no_write:
+
         print_ln('No maps generated as no-write flag is on.')
         return
 
     areaids = get_default_areaids()
     if not mapfileio.exists_map_files(areaids, settings.source_dir):
-        fail('Maps not found in the directory %s! Place the original Rabi-Ribi maps '
+        print_ln('Maps not found in the directory %s! Place the original Rabi-Ribi maps '
              'in this directory for the randomizer to work.' % settings.source_dir)
+        return
 
     mapfileio.grab_original_maps(settings.source_dir, settings.output_dir)
     print_ln('Maps copied...')
     mod = mapfileio.ItemModifier(areaids, source_dir=settings.source_dir, no_load=True)
-    pre_modify_map_data(mod, settings, allocation.map_modifications)
+    pre_modify_map_data(mod, settings, allocation.map_modifications, randominstance)
     apply_item_specific_fixes(mod, allocation)
     apply_map_transition_shuffle(mod, randomizer_data, settings, allocation)
     insert_items_into_map(mod, randomizer_data, settings, allocation)
 
     mod.save(settings.output_dir)
     print_ln('Maps saved successfully to %s.' % settings.output_dir)
-
     display_hash(settings)
+    print_ln('Seed: %s' % seed)
 
 
 if __name__ == '__main__':

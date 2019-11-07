@@ -1,4 +1,3 @@
-import random
 from utility import GraphEdge, is_egg, print_ln
 
 NO_CONDITIONS = lambda v : True
@@ -45,7 +44,7 @@ class Allocation(object):
             #self.item_at_item_location = dict(zip(item_slots, item_slots))
             #return
 
-        random.shuffle(self.items_to_allocate)
+        data.random.shuffle(self.items_to_allocate)
 
         # A map of location -> item at location
         self.item_at_item_location = dict(zip(item_slots, self.items_to_allocate))
@@ -59,13 +58,13 @@ class Allocation(object):
             if x <= 0: return 0
             low = int(0.5*x)
             high = int(1.5*x+2)
-            return random.randrange(low, high)
+            return data.random.randrange(low, high)
 
         target_template_count = get_template_count(settings.constraint_changes)
 
         picked_templates = []
         while len(templates) > 0 and len(picked_templates) < target_template_count:
-            index = random.randrange(sum(t.weight for t in templates))
+            index = data.random.randrange(sum(t.weight for t in templates))
             for current_template in templates:
                 if index < current_template.weight: break
                 index -= current_template.weight
@@ -105,7 +104,7 @@ class Allocation(object):
 
         # Map Transitions
         if settings.shuffle_map_transitions:
-            random.shuffle(self.walking_left_transitions)
+            data.random.shuffle(self.walking_left_transitions)
 
         for rtr, ltr in zip(data.walking_right_transitions, self.walking_left_transitions):
             edge1 = GraphEdge(
@@ -159,8 +158,8 @@ class Allocation(object):
         if len(non_hard_to_reach_eggs) + len(hard_to_reach_eggs) < n_eggs_in_map:
             # Not enough reachable eggs. Retry.
             return False, None
-        remainingEggsToPlace = random.sample(non_hard_to_reach_eggs, n_eggs_in_map - len(hard_to_reach_eggs))
-        random.shuffle(remainingEggsToPlace)
+        remainingEggsToPlace = data.random.sample(non_hard_to_reach_eggs, n_eggs_in_map - len(hard_to_reach_eggs))
+        data.random.shuffle(remainingEggsToPlace)
 
         extra_eggs = remainingEggsToPlace[:settings.extra_eggs]
         eggs_to_move = remainingEggsToPlace[settings.extra_eggs:]

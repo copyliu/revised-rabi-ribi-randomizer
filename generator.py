@@ -5,10 +5,12 @@ from utility import fail, print_ln
 import time
 
 class Generator(object):
-    def __init__(self, data, settings):
+    def __init__(self, data, settings, flag, lock):
         self.data = data
         self.settings = settings
         self.allocation = Allocation(data, settings)
+        self.flag = flag
+        self.lock = lock
 
     def generate_seed(self):
         MAX_ATTEMPTS = self.settings.max_attempts
@@ -16,7 +18,8 @@ class Generator(object):
 
         start_time = time.time()
         for attempts in range(MAX_ATTEMPTS):
-
+            if self.flag.value:
+                break
             self.shuffle()
             analyzer = Analyzer(self.data, self.settings, self.allocation)
             if analyzer.success:
@@ -50,12 +53,16 @@ class Generator(object):
                     
 
         if not success:
-            fail('Unable to generate a valid seed after %d attempts.' % MAX_ATTEMPTS)
+            return [None,None,None]
 
+        with self.lock:
+            if self.flag.value:
+                return [None, None, None]
+            self.flag.value=1
         time_taken = time.time() - start_time
-        time_string = '%.2f seconds' % (time_taken)
+        time_string = '%.2f seconds' % time_taken
 
-        print_ln('Seed generated after %d attempts in %s' % (attempts+1, time_string))
+        print_ln('Seed generated in %s' % time_string)
 
         # Generate Visualization and Print Output:
         if False:
