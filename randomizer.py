@@ -424,7 +424,8 @@ def run_generator(seed, settings, flag, lock):
     """
     we use an array to stop generator if some thread finish its work.
     """
-    randominstance = random.Random(seed)
+
+    randominstance = random.Random(string_to_integer_seed('%s_hd:%s' % (seed, settings.hide_difficulty)))
     randomizer_data = RandomizerData(settings, randominstance)
     generator = Generator(randomizer_data, settings, flag, lock)
     allocation, analyzer, difficulty_analysis = generator.generate_seed()
@@ -476,5 +477,6 @@ if __name__ == '__main__':
         reset_maps(args.source_dir, args.output_dir)
     else:
         if args.seed == None: seed = None
-        else: seed = string_to_integer_seed('%s_hd:%s' % (args.seed, args.hide_difficulty))
+        else: seed = args.seed
+        #else: seed = string_to_integer_seed('%s_hd:%s' % (args.seed, args.hide_difficulty))
         run_randomizer(seed, args)
